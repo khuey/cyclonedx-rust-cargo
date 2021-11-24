@@ -25,7 +25,7 @@ use xml_writer::XmlWriter;
 
 use crate::{license::LicenseError, traits::ToXml};
 
-use crate::license::License;
+use crate::license::{self, License};
 use crate::reference::ExternalReference;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -76,8 +76,8 @@ pub struct Component {
 impl<'a> Component {
     /// Create a component which describes the package as a library.
     pub fn library(pkg: &'a Package) -> Self {
-        let licenses = match License::try_from(pkg) {
-            Ok(license) => vec![license],
+        let licenses = match license::try_parse_licenses(pkg) {
+            Ok(license) => license,
             Err(LicenseError::NoLicenseProvidedError) => {
                 log::trace!("Library did not have a license");
                 Vec::new()
@@ -111,8 +111,8 @@ impl<'a> Component {
 
     /// Create a component which describes the package as an application.
     pub fn application(pkg: &'a Package) -> Self {
-        let licenses = match License::try_from(pkg) {
-            Ok(license) => vec![license],
+        let licenses = match license::try_parse_licenses(pkg) {
+            Ok(license) => license,
             Err(LicenseError::NoLicenseProvidedError) => {
                 log::trace!("Application did not have a license");
                 Vec::new()
@@ -153,8 +153,8 @@ impl<'a> Component {
 
 impl<'a> From<&'a Package> for Component {
     fn from(package: &'a Package) -> Self {
-        let licenses = match License::try_from(package) {
-            Ok(license) => vec![license],
+        let licenses = match license::try_parse_licenses(package) {
+            Ok(license) => license,
             Err(LicenseError::NoLicenseProvidedError) => {
                 log::trace!("Package did not have a license");
                 Vec::new()
