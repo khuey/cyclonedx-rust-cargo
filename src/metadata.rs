@@ -27,6 +27,7 @@ use std::str::FromStr;
 
 use crate::author::Author;
 use crate::component::Component;
+use crate::tool::{Tool, CARGO_CYCLONEDX};
 use crate::traits::ToXml;
 
 #[derive(Serialize)]
@@ -37,6 +38,8 @@ pub struct Metadata {
     pub authors: Option<Vec<Author>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub component: Option<Component>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<Tool>>,
 }
 
 impl<'a> Default for Metadata {
@@ -45,6 +48,7 @@ impl<'a> Default for Metadata {
             timestamp: Some(Utc::now()),
             authors: None::<Vec<Author>>,
             component: None::<Component>,
+            tools: Some(vec![CARGO_CYCLONEDX]),
         }
     }
 }
@@ -94,6 +98,10 @@ impl ToXml for Metadata {
 
         if let Some(component) = &self.component {
             component.to_xml(xml)?;
+        }
+
+        if let Some(tools) = &self.tools {
+            tools.to_xml(xml)?;
         }
 
         xml.end_elem()

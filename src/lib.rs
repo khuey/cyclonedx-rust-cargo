@@ -22,6 +22,7 @@ pub mod generator;
 pub mod license;
 pub mod metadata;
 pub mod reference;
+pub mod tool;
 pub mod traits;
 
 pub use crate::{
