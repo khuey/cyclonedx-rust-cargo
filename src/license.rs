@@ -19,31 +19,74 @@
 use std::{convert::TryFrom, io};
 
 use cargo::core::Package;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
+use spdx::{Expression, LicenseId, ParseMode};
 use thiserror::Error;
 use xml_writer::XmlWriter;
 
 use crate::traits::ToXml;
 
-#[derive(Serialize)]
-#[serde(rename_all = "lowercase")]
-pub struct License {
-    pub expression: String,
+fn serialize_license_id<S: Serializer>(license_id: &LicenseId, s: S) -> Result<S::Ok, S::Error> {
+    license_id.full_name.serialize(s)
 }
 
-impl<'a> TryFrom<&'a Package> for License {
-    type Error = LicenseError;
+#[derive(Serialize)]
+#[serde(untagged, rename_all = "lowercase")]
+pub enum License {
+    Expression(String),
+    #[serde(serialize_with = "serialize_license_id")]
+    Id(LicenseId),
+}
 
-    fn try_from(pkg: &'a Package) -> Result<Self, Self::Error> {
-        let expression = pkg
-            .manifest()
-            .metadata()
-            .license
-            .as_ref()
-            .ok_or_else(|| LicenseError::NoLicenseProvidedError)?
-            .to_string();
-        Ok(Self { expression })
+impl From<LicenseId> for License {
+    fn from(license_id: LicenseId) -> Self {
+        Self::Id(license_id)
     }
+}
+
+pub fn try_parse_licenses(pkg: &Package) -> Result<Vec<License>, LicenseError> {
+    let expression = pkg
+        .manifest()
+        .metadata()
+        .license
+        .as_ref()
+        .ok_or_else(|| LicenseError::NoLicenseProvidedError)?
+        .as_str();
+    match Expression::parse_mode(expression, ParseMode::Lax) {
+        Ok(parsed_licenses) => {
+            let mut licenses = Vec::new();
+            for expr_req in parsed_licenses.requirements() {
+                if expr_req.req.exception.is_some() {
+                    log::warn!("Unable to structure '{}' as an SPDX license expression: exceptions are not yet handled",
+                               expression);
+                    licenses.clear();
+                    break;
+                }
+
+                if let Some(license_id) = expr_req.req.license.id() {
+                    licenses.push(license_id.into());
+                } else {
+                    log::warn!("Unable to structure '{}' as an SPDX license expression: referencers are not yet handled",
+                               expression);
+                    licenses.clear();
+                    break;
+                }
+            }
+
+            if !licenses.is_empty() {
+                return Ok(licenses);
+            }
+        }
+        Err(parse_error) => {
+            log::warn!(
+                "Unable to parse '{}' as an SPDX license expression: {}",
+                expression,
+                parse_error
+            );
+        }
+    }
+
+    Ok(vec![License::Expression(expression.to_string())])
 }
 
 #[derive(Debug, Error)]
@@ -61,21 +104,26 @@ impl<'a> TryFrom<&'a cargo_metadata::Package> for License {
             .as_ref()
             .ok_or_else(|| LicenseError::NoLicenseProvidedError)?
             .to_string();
-        Ok(Self { expression })
+        Ok(Self::Expression(expression))
     }
 }
 
 impl ToXml for License {
     fn to_xml<W: io::Write>(&self, xml: &mut XmlWriter<W>) -> io::Result<()> {
-        xml.begin_elem("license")?;
         match self {
-            expr => {
+            License::Expression(expr) => {
                 xml.begin_elem("expression")?;
-                xml.text(expr.expression.trim())?;
+                xml.text(expr.trim())?;
+                xml.end_elem()
+            }
+            License::Id(id) => {
+                xml.begin_elem("license")?;
+                xml.begin_elem("id")?;
+                xml.text(id.full_name)?;
                 xml.end_elem()?;
+                xml.end_elem()
             }
         }
-        xml.end_elem()
     }
 }
 
