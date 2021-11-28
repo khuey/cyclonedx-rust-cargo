@@ -118,7 +118,7 @@ fn top_level_dependencies(
     for dependency in all_dependencies {
         if let Some(package_id) = package_ids
             .package_ids()
-            .find(|id| dependency.matches_id(*id))
+            .find(|id| dependency.matches_ignoring_source(*id))
         {
             let package = package_ids
                 .get_one(package_id)
