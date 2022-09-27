@@ -52,7 +52,7 @@ pub fn try_parse_licenses(pkg: &Package) -> Result<Vec<License>, LicenseError> {
         .as_ref()
         .ok_or_else(|| LicenseError::NoLicenseProvidedError)?
         .as_str();
-    match Expression::parse_mode(expression, ParseMode::Lax) {
+    match Expression::parse_mode(expression, ParseMode::LAX) {
         Ok(parsed_licenses) => {
             let mut licenses = Vec::new();
             for expr_req in parsed_licenses.requirements() {
