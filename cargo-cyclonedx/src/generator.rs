@@ -132,8 +132,13 @@ fn create_bom(package: &Package, dependencies: BTreeSet<Package>) -> Result<Bom,
 fn create_component(package: &Package) -> Component {
     let name = package.name().to_owned().trim().to_string();
     let version = package.version().to_string();
+    let mut qualifiers = Vec::new();
+    let source_id = package.package_id().source_id();
+    if !source_id.is_default_registry() {
+        qualifiers.push(("repository_url".to_string(), source_id.url().to_string()));
+    }
 
-    let purl = match Purl::new("cargo", &name, &version) {
+    let purl = match Purl::new("cargo", &name, &version, qualifiers) {
         Ok(purl) => Some(purl),
         Err(e) => {
             log::error!("Package {} has an invalid Purl: {} ", package.name(), e);

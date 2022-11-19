@@ -29,9 +29,21 @@ use crate::validation::{
 pub struct Purl(pub(crate) String);
 
 impl Purl {
-    pub fn new(package_type: &str, name: &str, version: &str) -> Result<Purl, UriError> {
+    pub fn new(
+        package_type: &str,
+        name: &str,
+        version: &str,
+        qualifiers: Vec<(String, String)>,
+    ) -> Result<Purl, UriError> {
         match packageurl::PackageUrl::new(package_type, name) {
-            Ok(mut purl) => Ok(Self(purl.with_version(version.trim()).to_string())),
+            Ok(mut purl) => {
+                purl.with_version(version.trim());
+                for (key, value) in qualifiers.into_iter() {
+                    purl.add_qualifier(key, value)
+                        .map_err(|e| UriError::InvalidPurl(e.to_string()))?;
+                }
+                Ok(Self(purl.to_string()))
+            }
             Err(e) => Err(UriError::InvalidPurl(e.to_string())),
         }
     }
