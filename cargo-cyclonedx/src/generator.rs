@@ -134,7 +134,7 @@ fn create_component(package: &Package) -> Component {
     let version = package.version().to_string();
     let mut qualifiers = Vec::new();
     let source_id = package.package_id().source_id();
-    if !source_id.is_default_registry() {
+    if !source_id.is_default_registry() && !source_id.is_path() {
         qualifiers.push(("repository_url".to_string(), source_id.url().to_string()));
     }
 
